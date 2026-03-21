@@ -7,9 +7,40 @@
 
 ### Role Contracts
 
-- Use literal types as Role Contracts, so the code can be understood without deeper type knowledge. Example: `const Form: { action: string } = event.target;`
-- EXCEPTION: If the types are well-known, like the JavaScript Web APIs, you can reference them directly (e.g., `Page`, `HTMLElement`). Example: `const Page: Page = await Browser.newPage();`
-- If an object is passed to the Context function, a Role can be defined from it directly in the function parameter, which is the ONLY case RoleMethods should exist in the Context without their Role defined immediately before them.
+- Use literal types as Role Contracts, so the code can be understood without deeper type knowledge. Example:
+
+```ts
+const Form: { action: string } = event.target;
+```
+
+- EXCEPTION: If the types are well-known, like the JavaScript Web APIs, you can reference them directly (e.g., `Page`, `HTMLElement`). Example:
+
+```ts
+const Page: Page = await Browser.newPage();
+```
+
+- If an object is passed to the Context function that fits the mental model of a Context Role, the Role should be defined from it with the Role Contract as the argument type. This is the ONLY case RoleMethods should exist in the Context without their Role defined immediately before them. Example:
+
+```ts
+/**
+ * @DCI-context
+ * A speaker proclaims something to the world, that dutifully notes it
+ */
+function HelloWorld(
+  Speaker: { phrase: string },
+  World: { log: (msg: unknown) => void },
+) {
+  function Speaker_proclaim() {
+    World_note(Speaker.phrase);
+  }
+
+  function World_note(phrase: string) {
+    World.log(phrase);
+  }
+
+  Speaker_proclaim();
+}
+```
 
 ### RoleMethod Naming
 

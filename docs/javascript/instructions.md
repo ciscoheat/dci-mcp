@@ -21,7 +21,28 @@ const Form = event.target;
 const Page = await Browser.newPage();
 ```
 
-- If an object is passed to the Context function, a Role can be defined from it directly in the function parameter, which is the ONLY case RoleMethods should exist in the Context without their Role defined immediately before them.
+- If an object is passed to the Context function that fits the mental model of a Context Role, the Role should be defined from it with the Role Contract as the argument type. This is the ONLY case RoleMethods should exist in the Context without their Role defined immediately before them. Example:
+
+```js
+/**
+ * @DCI-context
+ * A speaker proclaims something to the world, that dutifully notes it
+ */
+function HelloWorld(
+  /** @type {{ phrase: string }} */ Speaker,
+  /** @type {{ log: (msg: unknown) => void }} */ World,
+) {
+  function Speaker_proclaim() {
+    World_note(Speaker.phrase);
+  }
+
+  function World_note(phrase) {
+    World.log(phrase);
+  }
+
+  Speaker_proclaim();
+}
+```
 
 ### RoleMethod Naming
 

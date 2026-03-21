@@ -1,6 +1,6 @@
 # dci-mcp
 
-An MCP server that enforces strict [DCI architecture](https://en.wikipedia.org/wiki/Data,_context_and_interaction) when generating or refactoring code. It loads language-specific rules and examples, then instructs the LLM to apply them immediately — no back-and-forth.
+An MCP server that generates code adhering to the [DCI architecture](https://en.wikipedia.org/wiki/Data,_context_and_interaction) when generating or refactoring code. It loads language-specific rules and examples, then instructs the LLM to apply them immediately — no back-and-forth.
 
 ## Tools
 
@@ -26,7 +26,7 @@ docs/
     examples.md
 ```
 
-## Usage in mcp.json
+## Usage in mcp.json (stdio)
 
 ```jsonc
 "dci": {
