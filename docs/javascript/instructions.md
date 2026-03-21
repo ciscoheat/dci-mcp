@@ -21,7 +21,7 @@ const Form = event.target;
 const Page = await Browser.newPage();
 ```
 
-- If an object is passed to the Context function that fits the mental model of a Context Role, the Role should be defined from it with the Role Contract as the argument type. This is the ONLY case RoleMethods should exist in the Context without their Role defined immediately before them. Example:
+- If an object is passed to the Context function that fits the mental model of a Context Role, the Role should be defined from it with the Role Contract as the parameter type. This is the ONLY case RoleMethods should exist in the Context without their Role defined immediately before them. Example:
 
 ```js
 /**
