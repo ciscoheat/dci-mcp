@@ -1,7 +1,7 @@
 {
   "name": "dci-mcp",
-  "version": "1.0.0",
-  "description": "MCP Server enforcing strict DCI architecture generation and refactoring.",
+  "version": "0.1.0",
+  "description": "MCP Server generating code that adheres to DCI architecture principles.",
   "type": "module",
   "bin": {
     "dci-mcp": "./dist/index.js"
@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepare": "tsc",
+    "prepublishOnly": "tsc",
     "start": "node --experimental-strip-types src/index.ts",
     "dev": "pnpm build && pnpm link",
     "inspector": "pnpx @modelcontextprotocol/inspector dci-mcp"

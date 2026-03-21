@@ -5,18 +5,25 @@ import { z } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const { version } = createRequire(import.meta.url)("../package.json") as {
+  version: string;
+};
 
 // Register the Tools
 const languageSchema = z.object({
   language: z
-    .enum(["typescript", "javascript"])
-    .describe("The target programming language (e.g., 'typescript', 'python')"),
+    .string()
+    .describe(
+      "The target programming language, matching a folder name under docs/ (e.g. 'typescript', 'javascript')",
+    ),
 });
 
 // Initialize the MCP Server
 const server = new McpServer({
-  name: "dci-architect-server",
-  version: "1.0.0",
+  name: "dci-mcp",
+  version,
 });
 
 // Calculate paths to the docs directory
