@@ -1,13 +1,10 @@
+#!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-// Calculate paths to the docs directory
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DOCS_DIR = path.join(__dirname, "..", "docs");
 
 // Register the Tools
 const languageSchema = z.object({
@@ -21,6 +18,10 @@ const server = new McpServer({
   name: "dci-architect-server",
   version: "1.0.0",
 });
+
+// Calculate paths to the docs directory
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DOCS_DIR = path.join(__dirname, "..", "docs");
 
 /**
  * Helper function to read, concatenate, and append action-specific directives.
