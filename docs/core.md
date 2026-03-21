@@ -103,10 +103,10 @@
 2. **Identify Roles**
 
 - What objects collaborate for this use case?
-- Roles should be played by _objects_, not primitive types.
-- Primitive types passed to the Context, like configuration options, can be expressed as a settings object, played by a `Context` role.
-- Additional Context state, usually transient, can also be added as properties to the `Context` role if simple, otherwise a separate Role can be created for it, usually when a Context needs to "construct" an object throughout its Interaction, like a `Response` to a HTTP request.
-- Name the Roles meaningfully (e.g., `SourceAccount`, `Messages`). Ensure they are relevant to the use case.
+- Roles must be located _inside_ the Context.
+- Roles should be played by _objects_, not primitive types. Primitive types passed to the Context, like configuration options, can be expressed as a settings object, played by a `Context` role.
+- Additional Context state, usually transient, can also be added as properties to the `Context` role if few and simple, otherwise a separate Role can be created for it, usually when a Context needs to construct an object throughout its Interaction, like a `Response` to a HTTP request.
+- Name the Roles meaningfully (e.g., `SourceAccount`, `Messages`), do NOT append `Role` to the name.
 - DON'T add Roles that are not relevant to the use case/mental model, or just for technical reasons (e.g., a `Database` Role for database access, `ResponseComposer` for constructing a HTTP response, or roles that act like software design patterns). Instead, consider whether the technical dependency can be abstracted behind a Role Contract of an existing Role, or if it is truly needed as a separate Role.
 
 3. **Define Role Contracts**
@@ -117,17 +117,16 @@
 
 4. **Implement RoleMethods**
 
-- Write interaction logic inside the Context.
+- Write interaction logic _inside_ the Context.
 - Group RoleMethods by Role for clarity.
 - RoleMethods should be kept together. No mixing of RoleMethods or other instructions between RoleMethods belonging to the same role.
-- DON'T add RoleMethods without Roles, they are just helper functions in disguise. RoleMethods MUST have a corresponding Role identifier with a Contract, so they further the Context goal ("doing their part" in the use case) and are not just utility functions, which *can* exist on a Role but usually as private RoleMethods.
-- Most of the time, RoleMethods should "chain" together the Interaction in progress, meaning that at the end of a RoleMethod, another RoleMethod of a Role is called, passing on relevant data as arguments, further fulfilling the purpose of the Context according to the mental model.
-- The "chaining" avoids the dependency on return values and makes it easier to "rewire" the context later if requirements change, or new functionality is added.
-- If a RoleMethod is called only once in the Context, it is usually better to inline its logic into the caller RoleMethod, to avoid unnecessary indirection. But if it is called multiple times, or if it is a distinct step in the use case that can be clearly named, it can be a separate RoleMethod (if it can be connected to a relevant Role).
+- DON'T add RoleMethods without Roles, that's just helper functions in disguise. RoleMethods MUST have a corresponding Role identifier with a Contract, so they further the Context goal ("doing their part" in the use case) and are not just utility functions, which _can_ exist on a Role but usually as private RoleMethods.
+- Most of the time, RoleMethods should "chain" together the Interaction in progress, meaning that at the end of a RoleMethod, another RoleMethod of a Role is called, passing on relevant data as arguments, further fulfilling the purpose of the Context according to the mental model. This chaining avoids the dependency on return values and makes it easier to "rewire" the context later if requirements change, or new functionality is added.
+- If a RoleMethod is called only once in the Context, it is usually better to inline its logic into the caller RoleMethod to avoid unnecessary indirection. But if it is called multiple times, or if it is a distinct step in the use case that can be clearly named, it can be a separate RoleMethod (if it can be connected to a relevant Role).
 
 5. **Focus on Interaction**
 
-- RoleMethods should coordinate with ("ask") other Roles, not dictate ("tell").
+- RoleMethods should coordinate with other Roles ("ask"), not dictate ("tell").
 - When data is acquired or created within a RoleMethod, for example through a Role Contract method call, if needed by other Roles it should be passed to other RoleMethods, expressing the interaction and collaboration of the Roles - true object-orientation.
 - Return values should be avoided if possible (think message-passing that ultimately modifies state), but is not prohibited, for example an occasional boolean check. Readability is the goal, not enforcing rules that complicates the code.
 
@@ -147,8 +146,7 @@
 
 9. **Nested Contexts**
 
-- If a RoleMethod's logic represents a _reusable_, _distinct_ use case, consider implementing it as a separate Context.
-- This keeps Contexts focused and manageable.
+- If a RoleMethod's logic represents a _reusable_, _distinct_ use case, consider implementing it as a separate Context. This keeps Contexts focused and manageable.
 - Calling such a Context within another is called "nesting" Contexts.
 - Follow the rules about when not to use DCI to determine whether to use nested Contexts.
 
