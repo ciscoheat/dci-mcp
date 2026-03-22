@@ -7,44 +7,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
-const supportedLanguages = ["typescript", "javascript"];
-
-// Register the Tools
-const languageSchema = z.object({
-  language: z
-    .string()
-    .describe(
-      "The target programming language. Supported languages: " +
-        supportedLanguages.join(", "),
-    ),
-});
-
-// Initialize the MCP Server
-const { version } = createRequire(import.meta.url)("../package.json") as {
-  version: string;
-};
-
-const server = new McpServer({
-  name: "dci-mcp",
-  version,
-});
-
-// Calculate paths to the docs directory
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DOCS_DIR = path.join(__dirname, "..", "docs");
-
-function languageNotFound() {
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text: `Error executing tool. Please inform the user that the following languages are supported by the DCI MCP server: ${supportedLanguages.join(", ")}.`,
-      },
-    ],
-    isError: true,
-  };
-}
-
 /**
  * Loads and composes complete DCI instruction content for a language and action.
  * @DCI-context
@@ -119,58 +81,109 @@ async function ServeInstructions(
   return Response_getText();
 }
 
-server.registerTool(
-  "prepare_dci_refactor",
-  {
-    title: "Prepare DCI Refactor",
-    description:
-      `Call this tool when the user asks to refactor code into the DCI paradigm. Pass the target language. ` +
-      `The tool will return the strict DCI architectural rules you need to follow before generating the final code.`,
-    inputSchema: languageSchema,
-  },
-  async ({ language }) => {
-    try {
-      const content = await ServeInstructions(
-        { language, action: "refactor" },
-        { dir: DOCS_DIR },
-      );
-      return { content: [{ type: "text" as const, text: content }] };
-    } catch {
-      return languageNotFound();
-    }
-  },
-);
+class DciMcpServer {
+  private readonly server: McpServer;
+  private readonly docsDir: string;
+  private readonly supportedLanguages: string[] = [];
 
-server.registerTool(
-  "scaffold_dci_from_mental_model",
-  {
-    title: "Scaffold DCI from Mental Model",
-    description:
-      `Call this tool when the user provides a mental model or user story and wants you to write a new DCI Context from scratch. ` +
-      `The tool will return the strict DCI architectural rules required to translate their mental model into code.`,
-    inputSchema: languageSchema,
-  },
-  async ({ language }) => {
-    try {
-      const content = await ServeInstructions(
-        { language, action: "scaffold" },
-        { dir: DOCS_DIR },
-      );
-      return { content: [{ type: "text" as const, text: content }] };
-    } catch {
-      return languageNotFound();
-    }
-  },
-);
+  constructor(docsDir: string, supportedLanguages: string[]) {
+    const { version } = createRequire(import.meta.url)("../package.json") as {
+      version: string;
+    };
+    this.server = new McpServer({ name: "dci-mcp", version });
+    this.docsDir = docsDir;
+    this.supportedLanguages = supportedLanguages;
+  }
 
-// Start the server using stdio transport
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("DCI MCP Server running on stdio");
+  private languageNotFound() {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Error executing tool. Please inform the user that the following languages are supported by the DCI MCP server: ${this.supportedLanguages.join(", ")}.`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  private registerTools() {
+    const languageSchema = z.object({
+      language: z
+        .string()
+        .describe(
+          "The target programming language. Supported languages: " +
+            this.supportedLanguages.join(", "),
+        ),
+    });
+
+    this.server.registerTool(
+      "prepare_dci_refactor",
+      {
+        title: "Prepare DCI Refactor",
+        description:
+          `Call this tool when the user asks to refactor code into the DCI paradigm. Pass the target language. ` +
+          `The tool will return the strict DCI architectural rules you need to follow before generating the final code.`,
+        inputSchema: languageSchema,
+      },
+      async ({ language }) => {
+        try {
+          const content = await ServeInstructions(
+            { language, action: "refactor" },
+            { dir: this.docsDir },
+          );
+          return { content: [{ type: "text" as const, text: content }] };
+        } catch {
+          return this.languageNotFound();
+        }
+      },
+    );
+
+    this.server.registerTool(
+      "scaffold_dci_from_mental_model",
+      {
+        title: "Scaffold DCI from Mental Model",
+        description:
+          `Call this tool when the user provides a mental model or user story and wants you to write a new DCI Context from scratch. ` +
+          `The tool will return the strict DCI architectural rules required to translate their mental model into code.`,
+        inputSchema: languageSchema,
+      },
+      async ({ language }) => {
+        try {
+          const content = await ServeInstructions(
+            { language, action: "scaffold" },
+            { dir: this.docsDir },
+          );
+          return { content: [{ type: "text" as const, text: content }] };
+        } catch {
+          return this.languageNotFound();
+        }
+      },
+    );
+  }
+
+  async start() {
+    this.registerTools();
+    const transport = new StdioServerTransport();
+    await this.server.connect(transport);
+    console.error("DCI MCP Server running on stdio");
+  }
 }
 
-main().catch((error) => {
+///// Config and startup /////
+
+const docsDir = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "docs",
+);
+
+const entries = await fs.readdir(docsDir, { withFileTypes: true });
+const supportedLanguages = entries
+  .filter((e) => e.isDirectory())
+  .map((e) => e.name);
+
+new DciMcpServer(docsDir, supportedLanguages).start().catch((error) => {
   console.error("Server error:", error);
   process.exit(1);
 });
