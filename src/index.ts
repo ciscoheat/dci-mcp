@@ -46,61 +46,77 @@ function languageNotFound() {
 }
 
 /**
- * Helper function to read, concatenate, and append action-specific directives.
+ * Loads and composes complete DCI instruction content for a language and action.
+ * @DCI-context
  */
-async function getDciInstructions(
-  language: string,
-  action: "refactor" | "scaffold",
+async function ServeInstructions(
+  Settings: { language: string; action: "refactor" | "scaffold" },
+  Docs: { dir: string },
 ): Promise<string> {
-  language = language.toLowerCase();
+  //#region Settings Role //////////////////
 
-  const corePath = path.join(DOCS_DIR, "core.md");
-  const langPath = path.join(DOCS_DIR, language, "instructions.md");
-  const examplesPath = path.join(DOCS_DIR, language, "examples.md");
-
-  try {
-    // Read core and language instructions concurrently; examples are optional
-    const [coreContent, langContent] = await Promise.all([
-      fs.readFile(corePath, "utf-8"),
-      fs.readFile(langPath, "utf-8"),
-    ]);
-
-    let examplesContent = "";
-    try {
-      examplesContent = await fs.readFile(examplesPath, "utf-8");
-    } catch (err: any) {
-      if (err.code !== "ENOENT") throw err;
-    }
-
-    let response = `${coreContent}\n\n${langContent}`;
-    if (examplesContent) {
-      response += `\n\n${examplesContent}`;
-    }
-    response += "\n\n";
-
-    // Append the action-specific LLM directive
-    if (action === "refactor") {
-      response += `
----
-**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**
-You now have the strict DCI rules. Do not ask for confirmation. 
-Immediately analyze the user's legacy code, silently plan the Data/Roles/Context, and generate the refactored DCI code in your next response.
-`;
-    } else if (action === "scaffold") {
-      response += `
----
-**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**
-You now have the strict DCI rules. Do not ask for confirmation. 
-Read the user's mental model/user story from the chat history and immediately translate it into a DCI Context. 
-`;
-    }
-
-    return response;
-  } catch (error: unknown) {
-    throw new Error(
-      `Failed to load DCI instructions for '${language}'. Ensure the language folder exists in the docs/ directory. Error details: ${String(error)}`,
-    );
+  function Settings_language() {
+    return Settings.language.toLowerCase();
   }
+
+  function Settings_applyDirective() {
+    const directive =
+      Settings.action === "refactor"
+        ? `\n---\n**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**\nYou now have the strict DCI rules. Do not ask for confirmation. \nImmediately analyze the user's legacy code, silently plan the Data/Roles/Context, and generate the refactored DCI code in your next response.\n`
+        : `\n---\n**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**\nYou now have the strict DCI rules. Do not ask for confirmation. \nRead the user's mental model/user story from the chat history and immediately translate it into a DCI Context. \n`;
+    Response_append(directive);
+  }
+
+  //#endregion
+
+  //#region Docs Role //////////////////
+
+  async function Docs_loadBaseInstructions() {
+    const lang = Settings_language();
+    const [core, instructions] = await Promise.all([
+      fs.readFile(path.join(Docs.dir, "core.md"), "utf-8"),
+      fs.readFile(path.join(Docs.dir, lang, "instructions.md"), "utf-8"),
+    ]);
+    Response_setBaseInstructions(core, instructions);
+    await Docs_appendExamples(lang);
+  }
+
+  async function Docs_appendExamples(lang: string) {
+    try {
+      const examples = await fs.readFile(
+        path.join(Docs.dir, lang, "examples.md"),
+        "utf-8",
+      );
+      Response_append(examples);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    }
+  }
+
+  //#endregion
+
+  //#region Response Role //////////////////
+
+  const Response: { text: string } = { text: "" };
+
+  function Response_setBaseInstructions(core: string, instructions: string) {
+    Response.text = `${core}\n\n${instructions}`;
+  }
+
+  function Response_append(content: string) {
+    Response.text += `\n\n${content}`;
+  }
+
+  function Response_getText() {
+    return Response.text;
+  }
+
+  //#endregion
+
+  // System operation
+  await Docs_loadBaseInstructions();
+  Settings_applyDirective();
+  return Response_getText();
 }
 
 server.registerTool(
@@ -114,7 +130,10 @@ server.registerTool(
   },
   async ({ language }) => {
     try {
-      const content = await getDciInstructions(language, "refactor");
+      const content = await ServeInstructions(
+        { language, action: "refactor" },
+        { dir: DOCS_DIR },
+      );
       return { content: [{ type: "text" as const, text: content }] };
     } catch {
       return languageNotFound();
@@ -133,7 +152,10 @@ server.registerTool(
   },
   async ({ language }) => {
     try {
-      const content = await getDciInstructions(language, "scaffold");
+      const content = await ServeInstructions(
+        { language, action: "scaffold" },
+        { dir: DOCS_DIR },
+      );
       return { content: [{ type: "text" as const, text: content }] };
     } catch {
       return languageNotFound();
