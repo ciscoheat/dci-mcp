@@ -12,21 +12,21 @@ import { createRequire } from "node:module";
  * @DCI-context
  */
 async function ServeInstructions(
-  Settings: { language: string; action: "refactor" | "scaffold" },
+  Context: { language: string; action: "refactor" | "scaffold" },
   Docs: { dir: string },
 ): Promise<string> {
   //#region Settings Role //////////////////
 
-  function Settings_language() {
-    return Settings.language.toLowerCase();
+  function Context_language() {
+    return Context.language.toLowerCase();
   }
 
-  function Settings_applyDirective() {
+  function Context_applyDirective() {
     const directive =
-      Settings.action === "refactor"
+      Context.action === "refactor"
         ? `\n---\n**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**\nYou now have the strict DCI rules. Do not ask for confirmation. \nImmediately analyze the user's legacy code, silently plan the Data/Roles/Context, and generate the refactored DCI code in your next response.\n`
         : `\n---\n**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**\nYou now have the strict DCI rules. Do not ask for confirmation. \nRead the user's mental model/user story from the chat history and immediately translate it into a DCI Context. \n`;
-    Response_append(directive);
+    Response_appendDirective(directive);
   }
 
   //#endregion
@@ -34,25 +34,27 @@ async function ServeInstructions(
   //#region Docs Role //////////////////
 
   async function Docs_loadBaseInstructions() {
-    const lang = Settings_language();
     const [core, instructions] = await Promise.all([
       fs.readFile(path.join(Docs.dir, "core.md"), "utf-8"),
-      fs.readFile(path.join(Docs.dir, lang, "instructions.md"), "utf-8"),
+      fs.readFile(
+        path.join(Docs.dir, Context_language(), "instructions.md"),
+        "utf-8",
+      ),
     ]);
     Response_setBaseInstructions(core, instructions);
-    await Docs_appendExamples(lang);
   }
 
-  async function Docs_appendExamples(lang: string) {
+  async function Docs_loadExamples() {
+    let examples: string;
     try {
-      const examples = await fs.readFile(
-        path.join(Docs.dir, lang, "examples.md"),
+      examples = await fs.readFile(
+        path.join(Docs.dir, Context_language(), "examples.md"),
         "utf-8",
       );
-      Response_append(examples);
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      throw err;
     }
+    Response_appendExamples(examples);
   }
 
   //#endregion
@@ -61,11 +63,20 @@ async function ServeInstructions(
 
   const Response: { text: string } = { text: "" };
 
-  function Response_setBaseInstructions(core: string, instructions: string) {
+  async function Response_setBaseInstructions(
+    core: string,
+    instructions: string,
+  ) {
     Response.text = `${core}\n\n${instructions}`;
+    await Docs_loadExamples();
   }
 
-  function Response_append(content: string) {
+  function Response_appendExamples(content: string) {
+    Response.text += `\n\n${content}`;
+    Context_applyDirective();
+  }
+
+  function Response_appendDirective(content: string) {
     Response.text += `\n\n${content}`;
   }
 
@@ -76,9 +87,10 @@ async function ServeInstructions(
   //#endregion
 
   // System operation
-  await Docs_loadBaseInstructions();
-  Settings_applyDirective();
-  return Response_getText();
+  {
+    await Docs_loadBaseInstructions();
+    return Response_getText();
+  }
 }
 
 class DciMcpServer {
