@@ -15,18 +15,25 @@ async function ServeInstructions(
   Context: { language: string; action: "refactor" | "scaffold" },
   Docs: { dir: string },
 ): Promise<string> {
-  //#region Settings Role //////////////////
+  //#region Context Role //////////////////
 
   function Context_language() {
     return Context.language.toLowerCase();
   }
 
   function Context_applyDirective() {
+    const instructions = `
+---
+**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**
+You now have the strict DCI rules. Do not ask for confirmation.
+`;
+
     const directive =
       Context.action === "refactor"
-        ? `\n---\n**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**\nYou now have the strict DCI rules. Do not ask for confirmation. \nImmediately analyze the user's legacy code, silently plan the Data/Roles/Context, and generate the refactored DCI code in your next response.\n`
-        : `\n---\n**CRITICAL INSTRUCTION FOR YOUR NEXT RESPONSE:**\nYou now have the strict DCI rules. Do not ask for confirmation. \nRead the user's mental model/user story from the chat history and immediately translate it into a DCI Context. \n`;
-    Response_appendDirective(directive);
+        ? `Immediately analyze the user's legacy code, silently plan the Data/Roles/Context, and generate the refactored DCI code in your next response.`
+        : `Read the user's mental model/user story from the chat history and translate it into a DCI Context in your next response.`;
+
+    Response_append(instructions, directive);
   }
 
   //#endregion
@@ -41,47 +48,31 @@ async function ServeInstructions(
         "utf-8",
       ),
     ]);
-    Response_setBaseInstructions(core, instructions);
+    Response_append(core, instructions);
+    await Docs_loadExamples();
   }
 
   async function Docs_loadExamples() {
-    let examples: string;
-    try {
-      examples = await fs.readFile(
-        path.join(Docs.dir, Context_language(), "examples.md"),
-        "utf-8",
-      );
-    } catch (err: unknown) {
-      throw err;
-    }
-    Response_appendExamples(examples);
+    const examples = await fs.readFile(
+      path.join(Docs.dir, Context_language(), "examples.md"),
+      "utf-8",
+    );
+    Response_append(examples);
+    Context_applyDirective();
   }
 
   //#endregion
 
   //#region Response Role //////////////////
 
-  const Response: { text: string } = { text: "" };
+  const Response: { parts: string[] } = { parts: [] };
 
-  async function Response_setBaseInstructions(
-    core: string,
-    instructions: string,
-  ) {
-    Response.text = `${core}\n\n${instructions}`;
-    await Docs_loadExamples();
-  }
-
-  function Response_appendExamples(content: string) {
-    Response.text += `\n\n${content}`;
-    Context_applyDirective();
-  }
-
-  function Response_appendDirective(content: string) {
-    Response.text += `\n\n${content}`;
+  function Response_append(...contents: string[]) {
+    Response.parts.push(...contents);
   }
 
   function Response_getText() {
-    return Response.text;
+    return Response.parts.join("\n\n");
   }
 
   //#endregion
